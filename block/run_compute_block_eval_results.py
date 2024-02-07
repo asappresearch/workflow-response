@@ -1,0 +1,341 @@
+"""
+this script is for running the evaluator model on A1, B2
+
+- Need to get output from A1, B2 evaluation_tf.csv s
+"""
+
+from transformers import AutoModel, AutoTokenizer, AutoModelForSequenceClassification
+import torch
+import csv
+#from constants import SPECIAL_TOKEN_SET
+from model.constants import *
+
+from ast import literal_eval
+# need to convert this to list
+# block_responses = literal_eval(block_responses)
+import random
+
+from sklearn.metrics import cohen_kappa_score
+from statsmodels.stats import inter_rater as irr
+from scipy import stats
+
+
+def chunk(l, size=16):
+      
+    # looping till length l
+    for i in range(0, len(l), size): 
+        yield l[i:i + size]
+
+# eval_model_path = "./save/evaluator_ab_rand/230706/roberta-base/evaluator-roberta-base-tf-lr1e-4-bs128-epoch5-ws0-gas1-1gpu/"
+# eval_model_path = "./save/evaluator/230705/roberta-base/evaluator-roberta-base-tf-lr1e-4-bs128-epoch10-ws0-gas1-1gpu/"
+# eval_model_path = "./save/evaluator_no_neg/230705/roberta-base/evaluator-roberta-base-tf-lr1e-4-bs128-epoch10-ws0-gas1-1gpu/"
+# eval_model_path = "./save/evaluator_no_random/230705/roberta-base/evaluator-roberta-base-tf-lr1e-4-bs128-epoch10-ws0-gas1-1gpu/"
+
+#eval_model_path = "./save/evaluator/230705/roberta-base/evaluator-roberta-base-tf-lr1e-4-bs64-epoch10-ws0-gas1-1gpu/"
+
+#eval_model_path = "./save/evaluator_scorer/230707/roberta-base/evaluator-roberta-base-tf-lr1e-4-bs64-epoch20-ws0-gas1-1gpu/"
+#eval_model_path = "./save/evaluator_scorer/230707/roberta-base/evaluator-roberta-base-tf-lr1e-4-bs16-epoch10-ws0-gas1-1gpu/"
+eval_model_path = "./save/block_evaluator_scorer/230801/random/evaluator-roberta-base-tf-lr2e-5-bs16-epoch1-ws0-gas1-1gpu/"
+
+device = torch.device("cuda")
+evaluator = AutoModelForSequenceClassification.from_pretrained(eval_model_path).to(device)
+# evaluator = AutoModelForSequenceClassification.from_pretrained(eval_model_path, torch_dtype=torch.float16).to(device)
+eval_tok = AutoTokenizer.from_pretrained(eval_model_path)
+ 
+# TODO: read the outputs
+#output_paths = [ "./test_results/dist_st/b1/epoch10/evaluation_tf.csv", "./test_results/dist_st/b2/epoch10/evaluation_tf.csv", "./test_results/dist_st/utt_prediction_oracle_wf/epoch10/evaluation_tf.csv", "./test_results/dist_st/utt_prediction_cascade/epoch10/evaluation_tf.csv" ]
+
+output_paths = [ "./test_results/block_dj.csv", "./test_results/block_paloma.csv", "./test_results/block_paloma.csv"] # "./test_results/ramya.csv", 
+
+
+
+KEY_SET = []
+
+
+eval_data = {}
+for datapath in output_paths:
+    eval_data[datapath] = []
+    #datapath = fprefix + model + "/evaluation_tf.csv"
+    with open(datapath, 'r') as data:
+        count = 0 
+        for line in csv.DictReader(data):
+            context = line["context"]#+line["response_1"].strip()+"\nsystem: "
+            responses, scores = [], []
+            for i in range(3):
+                #print("row:", count)
+                #print(datapath)
+                response = line[f"{i}_response"].strip()
+                try: 
+                    score = int(line[f"{i}_score"].strip())
+                except:
+                    score = None
+                responses.append(response)
+                scores.append(score)
+            keys = literal_eval(line["keys"])
+            KEY_SET.extend(keys)
+            assert type(keys) == list, "buig"
+            res_dic = {}
+            for r,s,k in zip(responses, scores,keys):
+                res_dic[k] = {"response": r, "score":s, "context":context}
+
+
+            subflow = line["subflow"]
+            dic = { "context": context, "response": response, "subflow":subflow, "result":res_dic}
+            true_wf = line["true_wf"]
+            #dic["true_response"] = true_response
+            dic["true_wf"] = true_wf
+            eval_data[datapath].append(dic)
+            count += 1
+            if count >= 50:
+                break
+        #dic = { "context": context, "response": response, "true_wf": true_wf }
+
+print(eval_data.keys())
+
+print([len(x) for x in eval_data.values()])    
+assert len(set([len(x) for x in eval_data.values()])) == 1, "the models being compared do not have equal-sized generation sets!"
+
+LEN = len(eval_data[list(eval_data.keys())[0]])
+#print(eval_data[list(eval_data.keys())[0]][22])
+print(LEN)
+
+# random train sample: {'text': "Next Action: None\nAgent: hi how can i help you\nClient: i am thinking about buying some trousers, but i am not sure of the fit. \
+#  can i return them if they are not what i need?\nNext Action: membership\nAgent: sure let me check\nAction: membership bronze\nAction: search-faq \nAction: search-policy \
+#  \nNext Action: None\nAgent: depends on your membership level, what is your membership?\nClient: bronze\nNext Action: None\nAgent: bronze members are allowed returns for purchases made\
+#   in the last 90 days.\nClient: is this true even if i buy them on sale?\nNext Action: None\nAgent: yes, that;'s true!\nClient: okay great. \
+#  do you include a shipping label?\nAgent: you can come back here and i can send you one if you need it\nWorkflow Action: None", 'label': 1, 'type': 'positive', 'action': 'None'}
+
+
+# './test_results/dist_st/b2/epoch10/evaluation_tf.csv': 'Next Action: None Agent: hi, how may i help you this morning? Client: yea, i had a quick question \
+# Client: i was checking my email and it says my subscription was removed Client: is that true?  i still want it there Next Action: pull-up-account \
+# Agent: sure, i can check that for you Next Action: pull-up-account Agent: what is your account id? Client: umm, not sure Next Action: pull-up-account\
+#  Agent: can i have your full name or account id? Workflow Action: pull-up-account', 
+
+original = eval_data # naming failure
+
+KEYS = set(KEY_SET) #keys
+print(KEYS)
+# TODO: eval loop
+eval_data = {}
+for i in KEYS:
+    eval_data[i] = []
+
+for d in original[list(original.keys())[0]]:
+    for i in KEYS:
+        context = d["context"]
+        response = d["result"][i]["response"]
+        true_wf = d["true_wf"]
+        model_input = context + "\nAgent: " + response + "\nWorkflow Action: " + true_wf
+        # print(i)
+        # print(model_input)
+        # input()
+        eval_data[i].append(model_input)
+
+#print(eval_data.keys())
+
+
+#print(eval_tok.model_max_length)
+eval_result = {}
+for k, v in eval_data.items():
+    print("Evaluating ", k)
+    eval_result[k] = [  ]
+    for batch in chunk(v, size=16):
+        tokenized = eval_tok(batch, truncation=True, padding="longest", return_tensors="pt").to(device)
+
+        output = evaluator(**tokenized)
+
+        #preds = output.logits.sigmoid().flatten()
+        scores = output.logits.sigmoid().flatten()
+
+        #preds = output.logits.argmax(-1)
+        #scores = output.logits.softmax(-1)
+
+        #eval_result[k][0] += preds.tolist()
+        eval_result[k] += scores.tolist() #[ x[1] for x in scores.tolist() ] 
+# for i in range(LEN):
+#     print("="*30)
+#     print("Context: ", parallel_data[i]["context"])
+#     for k,v in eval_result.items():
+#         print("Model: ", k)
+#         print("Response: ", parallel_data[i]["context_"+k])
+#         print("Prediction: ", eval_result[k][i])
+
+#     print()
+import numpy as np
+for k, v in eval_result.items():
+    print(k)
+    print(np.average(v))
+    print()
+
+
+"""
+TODO: Gather all the results
+"""
+all_together = { k:[] for k in eval_result.keys()}
+# must be lsit of dicts { model_score: int, annotator_score: list}
+# for annotator, v in original.items():
+#     print(annotator)
+#     print(len(v))
+#     for dic in v:
+#         res_dic = dic["result"]
+        # scores, responses = [], []
+        # for k,vv in res_dic.items():
+        #     response = vv["response"]
+        #     score = vv["score"]
+        #     responses.append(response)
+        #     scores.append(score)
+
+
+#
+
+unanimous =  { model:[] for model in eval_result.keys()}
+thresholds =  { model:[] for model in eval_result.keys()}
+for model, scores in eval_result.items():
+    for i, score in enumerate(scores):
+        row = { "model_score":score,  "annotator_scores": [] }
+        for annotator, v in original.items():
+            item = v[i]
+            res_dic = item["result"][model]
+            annotator_score = res_dic["score"]
+            if annotator_score == None:
+                annotator_score = -2
+            elif annotator_score == 0:
+                annotator_score = 1
+                #annotator_score = 0
+            row["annotator_scores"].append(annotator_score)
+
+        if True:            
+            if len(set(row["annotator_scores"])) == 1:
+                dic = {"human_score": list(set(row["annotator_scores"]))[0], \
+                "model_score":score, "response":res_dic["response"], "context": res_dic["context"]}
+                unanimous[model].append(dic)
+                # print("="*30)
+                # print(res_dic["response"])
+                # print(row["annotator_scores"])
+                # print(score)
+                # print()
+                # input()
+
+            if score >= 0.75 or score <= 0.25:
+                dic = {"human_scores": row["annotator_scores"], \
+                "model_score":score, "response":res_dic["response"], "context": res_dic["context"]}
+                thresholds[model].append(dic)
+            
+        row["average"] = np.average([x for x in row["annotator_scores"] if x!=-2])
+        all_together[model].append(row)
+
+if False:
+    for model, v in thresholds.items():
+        top = [ x for x in v if x["model_score"] >= 0.75]
+        bottom = [ x for x in v if x["model_score"] <= 0.75]
+        for t in top+bottom:
+            print("="*30)
+            print(t["model_score"])
+            print(t["human_scores"])
+            print(t["context"])
+            print(t["response"])
+            print()
+            input()
+    exit()
+
+    for model, v in unanimous.items():
+        zero = [ x for x in v if x["human_score"] == 0]
+        non = [ x for x in v if x["human_score"] == -1]
+        com = [ x for x in v if x["human_score"] == 1]
+        print("="*30)
+        print(model)
+        print("zero")
+        print(len(zero))
+        print(np.average([x["model_score"] for x in zero]))
+        print("non")
+        print(len(non))
+        print(np.average([x["model_score"] for x in non]))
+        print("com")
+        print(len(com))
+        print(np.average([x["model_score"] for x in com]))
+        print("pearson:", stats.pearsonr([x["human_score"] for x in v], [x["model_score"] for x in v]))
+        print("spearman:", stats.spearmanr([x["human_score"] for x in v], [x["model_score"] for x in v]))
+        print()
+
+        
+
+    exit()
+
+
+for k,v in all_together.items():
+    print("="*30)
+    print(k)
+    #print(v)
+    avg_annotator = [vv["average"] for vv in v]
+    model = [ vv["model_score"] for vv in v]
+    print("avg judgement:", np.average(avg_annotator))
+    print("avg model:", np.average(model))
+    arr = [ vv["annotator_scores"] for vv in v]
+    
+    agg = irr.aggregate_raters(arr)
+    # print(arr)
+    # print(agg)
+    #input() 
+    
+    fleish = irr.fleiss_kappa(agg[0],method='fleiss')
+    print("fleiss kappa:", fleish)
+    print("pearson:", stats.pearsonr(model, avg_annotator))
+    print("spearman:", stats.spearmanr(model, avg_annotator))
+
+    assert len(v) == len(eval_result[k]), f"{len(v)} != {len(eval_result[k])}"
+
+    for i in range(1,4):
+        # TODO:
+        compliant_i = [ sum([ y >=1 for y in  x]) >= i for x in arr]
+        noncompliant_i = [ sum([ y <=-1 for y in  x]) >= i for x in arr]
+        print(f"Avg fraction of generations where at least {i} annotators marked as compliant = 1")
+        print(np.average(compliant_i))
+        print(f"Avg fraction of generations where at least {i} annotators marked as noncompliant = -1")
+        print(np.average(noncompliant_i))
+    print()
+    #exit()
+
+exit()
+
+
+
+
+
+
+#only_include = [ "./test_results/dist_st/b2/epoch10/evaluation_tf.csv", "./test_results/dist_st/utt_prediction_oracle_wf/epoch10/evaluation_tf.csv", "true_response" ]
+only_include = eval_data.keys()
+
+with open("eval.csv", "w") as fh:
+    header1 = [  [x+ "_response", x+"_score"] for x in list(eval_data.keys())]
+    header1 = [ x for sublist in header1 for x in sublist]
+    header2 = [] #[  x+ "_pred" for x in list(eval_data.keys())]
+    header3 = [  ] # x+ "_score" for x in list(eval_data.keys())]
+    header4 = [ ] # "subflow"]
+    header5 = [] #[  str(i)+ "_score" for i,x in enumerate(only_include)]
+    writer = csv.DictWriter(fh,  ["context", "subflow", "true_wf"] + header1 + header2 + header3 + header4)
+    writer.writeheader()
+    
+    row = {}
+    for i in range(LEN):
+        # if i not in chosen:
+        #     continue
+        # print(i, len(parallel_data))
+        # print(continue)
+        row["context"] = parallel_data[i]["context"]
+        original_data = parallel_data[i]
+        #keys = list(only_include) #list(original_data.keys())#list(range(len(original_data)))
+        #print("keys", keys)
+        #random.shuffle(keys)
+        #shuffled_data =  { key:original_data[key] for key in keys}
+        #for z, k in enumerate(keys):
+        for k,v in eval_result.items():
+            row[k+"_response"] = parallel_data[i][k]
+            #row[k+"_pred"] = eval_result[k][0][i]
+            row[k+"_score"] = eval_result[k][1][i]
+        row["true_wf"] = parallel_data[i]["true_wf"]
+        #row["keys"] = [ x.split("/")[3] if x!="true_response" else x for x in keys ]
+        row["subflow"] = parallel_data[i]["subflow"]
+        #print()
+        writer.writerow(row)
+        # print(parallel_data[i]["true_wf"])
+        # print(parallel_data[i]["subflow"])
