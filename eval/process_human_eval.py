@@ -35,8 +35,8 @@ device = torch.device("cuda")
 evaluator = AutoModelForSequenceClassification.from_pretrained(eval_model_path).to(device)
 eval_tok = AutoTokenizer.from_pretrained(eval_model_path)
 
-# output_paths =  [ "./test_results/new_dj.csv" , "./test_results/new_paloma.csv", "./test_results/new_ramya.csv"] 
-output_paths =  [ "./test_results/new_dj.csv" , "./test_results/new_paloma.csv", "./test_results/new_ramya.csv"]
+# output_paths =  [ "./test_results/new_annotator_c.csv" , "./test_results/new_annotator_b.csv", "./test_results/new_annotator_a.csv"] 
+output_paths =  [ "./test_results/new_annotator_c.csv" , "./test_results/new_annotator_b.csv", "./test_results/new_annotator_a.csv"]
 KEY_SET = []
 
 MODEL_NUM = 6

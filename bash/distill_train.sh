@@ -23,8 +23,7 @@ echo "overwrite: $overwrite_output_dir"
 
 # NOTE: fp16 needs to be false to not get NaN error down the line? ==> Is this true?
 
-#python $prefix run_clm.py \
-python $prefix zrun_special_tokens_clm.py \
+python $prefix run_special_tokens_clm.py \
     --model_name_or_path $model_name \
     --tokenizer_name $tokenizer_name \
     --per_device_train_batch_size $batch_size \

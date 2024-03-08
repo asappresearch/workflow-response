@@ -18,4 +18,4 @@ fi
 
 # create base model datasets
 base_folder="${folder/raw/base}"
-python scripts/data_processing/prepare_base_data.py --dataset abcd --data_path ${json_file} --save_path $base_folder
+python dataproc/make_seed_data.py 

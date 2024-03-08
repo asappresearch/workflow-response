@@ -4,7 +4,6 @@ import fire
 import markdown
 """
 For prompting with LLMs
-Ethan's tip is to format in markdown syntax
 """
 from typing import List, Dict
 

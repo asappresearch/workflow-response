@@ -1,10 +1,3 @@
-"""
-This script is intended to create
-the seed dataset for B1, B2, A1.1 / A1.2
-It shouldn't be directly usable but something
-that can be easily manipulated to conform to each training setting.
-The transformation should happen in datacollator or similar.
-"""
 
 import json
 
@@ -330,8 +323,5 @@ def make_seed_data_future_actions_one_convo(fp = "./data/abcd_v1.1.json"):
 
 
 if __name__ == "__main__":
-    #make_seed_data()
-    #make_seed_data_future_actions()
     make_seed_data_one_convo()
     make_seed_data_future_actions_one_convo()
-    #make_seed_data_kb_one_convo()

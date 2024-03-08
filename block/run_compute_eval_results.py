@@ -46,10 +46,10 @@ if False:
 # TODO: read the outputs
 #output_paths = [ "./test_results/dist_st/b1/epoch10/evaluation_tf.csv", "./test_results/dist_st/b2/epoch10/evaluation_tf.csv", "./test_results/dist_st/utt_prediction_oracle_wf/epoch10/evaluation_tf.csv", "./test_results/dist_st/utt_prediction_cascade/epoch10/evaluation_tf.csv" ]
 
-#output_paths = [ "./test_results/dj.csv", "./test_results/ramya.csv" ] #, "./test_results/paloma.csv"]
-#output_paths = [ "./woz_dj.csv", "./woz_ramya.csv" ] #, "./test_results/paloma.csv"]
-output_paths = [ "./test_results/dj.csv", "./test_results/ramya.csv" ,"./test_results/paloma.csv"]
-#output_paths =  [ "./new_dj.csv"]
+#output_paths = [ "./test_results/annotator_c.csv", "./test_results/annotator_a.csv" ] #, "./test_results/annotator_b.csv"]
+#output_paths = [ "./woz_annotator_c.csv", "./woz_annotator_a.csv" ] #, "./test_results/annotator_b.csv"]
+output_paths = [ "./test_results/annotator_c.csv", "./test_results/annotator_a.csv" ,"./test_results/annotator_b.csv"]
+#output_paths =  [ "./new_annotator_c.csv"]
 KEY_SET = []
 
 MODEL_NUM = 3
