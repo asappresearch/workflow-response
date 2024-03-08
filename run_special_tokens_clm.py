@@ -765,7 +765,7 @@ def main():
         return result
 
     # Note that with `batched=True`, this map processes 1,000 texts together, so group_texts throws away a remainder
-    # for each of those groups of 1,000 texts. You can adjust that batch_size here but a higher value might be slower
+    # for each of those groups of 1,000 texts. You can aannotator_cust that batch_size here but a higher value might be slower
     # to preprocess.
     #
     # To speed up this part, we use multiprocessing. See the documentation of the map method for more information:

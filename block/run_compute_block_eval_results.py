@@ -45,7 +45,7 @@ eval_tok = AutoTokenizer.from_pretrained(eval_model_path)
 # TODO: read the outputs
 #output_paths = [ "./test_results/dist_st/b1/epoch10/evaluation_tf.csv", "./test_results/dist_st/b2/epoch10/evaluation_tf.csv", "./test_results/dist_st/utt_prediction_oracle_wf/epoch10/evaluation_tf.csv", "./test_results/dist_st/utt_prediction_cascade/epoch10/evaluation_tf.csv" ]
 
-output_paths = [ "./test_results/block_dj.csv", "./test_results/block_paloma.csv", "./test_results/block_paloma.csv"] # "./test_results/ramya.csv", 
+output_paths = [ "./test_results/block_annotator_c.csv", "./test_results/block_annotator_b.csv", "./test_results/block_annotator_b.csv"] # "./test_results/annotator_a.csv", 
 
 
 

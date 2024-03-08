@@ -12,39 +12,12 @@ from transformers.debug_utils import DebugUnderflowOverflow
 
 class Policy:
     def __init__(self, model_name, temperature, device, reward_cond=False, tree_tokens=None, oracle=True, eval_model=False, reward_mode="single", reference=False):
-        #self.model = GPT2LMHeadModel.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name) # for debugging nan
-        #self.model = self.model.float()
-        #debug_overflow = DebugUnderflowOverflow(self.model, max_frames_to_save=100)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name) 
         self.device = device
-
-        #self.tokenizer = GPT2Tokenizer.from_pretrained(model_name, pad_token="<|endoftext|>")
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, pad_token="<|endoftext|>")
         self.model.config.pad_token_id = self.tokenizer.pad_token_id
         self.tokenizer.max_length = 512
 
-        # if eval_model:
-        #     """
-        #     This is not good...
-        #     since it leads to very high perplexity, but I guess we're interested in comparing not absolute...
-        #     still i'd like to improve on this
-        #     TODO: change the input_ids of special tokens into pad token_ids
-        #     """
-        #     print("Base model tokenizer len:", len(self.tokenizer))
-        #     self.tokenizer.add_tokens(SPECIAL_TOKEN_SET, special_tokens=True) 
-        #     print("Quark model tokenizer len:", len(self.tokenizer))
-
-        #     weights = self.model.get_input_embeddings().weight.detach().numpy()
-        #     mean_weights, std_weights = np.mean(weights, axis=0), np.std(weights, axis=0)
-        #     new_inits = np.vstack([np.random.normal(loc=mean_weights, scale=std_weights) for _ in SPECIAL_TOKEN_SET])
-
-        #     self.model.resize_token_embeddings(len(self.tokenizer))
-        #     with torch.no_grad():
-        #         new_inits = torch.tensor(new_inits)
-        #         self.model.get_input_embeddings().weight[-len(SPECIAL_TOKEN_SET):, :] = new_inits
-        #         #torch.nn.init.kaiming_uniform_(self.model.get_input_embeddings().weight[-len(tree_tokens):, :])
-        #         #self.model.get_input_embeddings().weight[-len(tree_tokens):, :] = torch.zeros(self.model.get_input_embeddings().weight[-len(tree_tokens):, :].shape)
-        
 
         if reward_cond:
             print("Base model tokenizer len:", len(self.tokenizer))
@@ -59,9 +32,6 @@ class Policy:
             with torch.no_grad():
                 new_inits = torch.tensor(new_inits)
                 self.model.get_input_embeddings().weight[-len(tree_tokens):, :] = new_inits
-                #torch.nn.init.kaiming_uniform_(self.model.get_input_embeddings().weight[-len(tree_tokens):, :])
-                #self.model.get_input_embeddings().weight[-len(tree_tokens):, :] = torch.zeros(self.model.get_input_embeddings().weight[-len(tree_tokens):, :].shape)
-
 
 
         self.model = self.model.to(self.device)
@@ -82,15 +52,8 @@ class Policy:
         if not self.oracle:
             self.special_token_set = [ x for x in SPECIAL_TOKEN_SET if x != WORKFLOW and x != WORKFLOW_END and x != RESPONSE]
         if self.reward_mode == "block":
-            # self.special_token_set = [ACTION, CONTEXT]
-            # self.end_of_response_id = self.tokenizer.convert_tokens_to_ids(ACTION) #self.tokenizer([RESPONSE_END])   
-            #self.special_token_set = [ACTION_END, CONTEXT]
             self.special_token_set = [CONTEXT_END]
             self.end_of_response_id = self.tokenizer.convert_tokens_to_ids(CONTEXT_END) #self.tokenizer([RESPONSE_END])   
-
-        #if self.reference:
-        #    self.special_token_set = [ACTION_END, CONTEXT]
-        #    self.end_of_response_id = self.tokenizer.convert_tokens_to_ids(ACTION_END) #self.tokenizer([RESPONSE_END])   
 
 
     def sample(self,
@@ -254,10 +217,7 @@ class Policy:
             output_attentions=False,
             output_hidden_states=False,
         )
-        if True and torch.isnan(outputs.logits).any():
-            print("+"*30)
-            print(outputs.logits)
-            #exit()
+
         # get the first logit
         query_logits = outputs.logits[:, :query_seq_len, :]
         last_non_masked_idx = torch.sum(query_mask, dim=1) - 1
@@ -266,14 +226,6 @@ class Policy:
         response_logits = outputs.logits[:, query_seq_len:-1, :]
         logits = torch.cat([first_logits[:, None], response_logits], dim=1)
 
-        # logits is all Nan
-        if False and torch.isnan(logits).any():
-            print("="*30)
-            print(first_logits)
-            print("="*30)
-            print(response_logits)
-            print(logits)
-            #exit()
 
         log_prob = F.log_softmax(logits, dim=-1)
         output_logprob = torch.gather(log_prob, 2, response_input_ids[:, :, None]).squeeze(2)

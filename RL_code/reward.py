@@ -25,10 +25,6 @@ from Quark.utils.utils import ensure_dir, ceil_div, reduce_mean, reduce_sum, dis
 
 
 from bert_score import BERTScorer
-#from call_openai import batch_evaluate_reward
-# scorer = BERTScorer(lang="en", rescale_with_baseline=True)
-# P, R, F1 = scorer.score(preds_flat, gold_flat)
-# bert_f1_flat = F1.tolist() # list of (n_examples * n_responses) elements
 
 def chunk(l, size=16):
       
@@ -38,21 +34,17 @@ def chunk(l, size=16):
 
 class Reward:
     def __init__(self, reward_model_path: str,  batch_size: int, save_dir: str, bert_filter: bool = False):
-        #self.path = save_path
-        #self.rate_limit = rate_limit
+
         self.batch_size = batch_size
         # init the model here
 
         eval_model_path = reward_model_path 
         self.device = torch.device("cuda")
         self.evaluator = AutoModelForSequenceClassification.from_pretrained(eval_model_path).to(self.device)
-        # evaluator = AutoModelForSequenceClassification.from_pretrained(eval_model_path, torch_dtype=torch.float16).to(device)
         self.eval_tok = AutoTokenizer.from_pretrained(eval_model_path)
         
         self.save_dir = save_dir
 
-
-        #self.oracle = oracle
 
         self.bert_filter = bert_filter
 
@@ -60,23 +52,13 @@ class Reward:
             self.bert_scorer = BERTScorer(lang="en", rescale_with_baseline=True)
 
     def get_reward(self, prompts: List[str], responses: List[str], workflows: List[str], gt_responses: List[str], epoch: str) -> List[float]:
-        # perspective_file = Path(self.path) / f'perspective_{epoch}.json'
-        # perspective = PerspectiveWorker(
-        #     out_file=perspective_file,
-        #     total=len(prompts),
-        #     rate_limit=self.rate_limit
-        # )
+
         assert len(prompts) == len(responses), f'prompts({len(prompts)}) and responses({len(responses)}) mismatch'
         assert len(prompts) == len(workflows), f'prompts({len(prompts)}) and workflows({len(workflows)}) mismatch'
         assert len(prompts) == len(gt_responses), f'prompts({len(prompts)}) and gt_responses({len(gt_responses)}) mismatch'
 
         inputs = []
         for p, r, wf in zip(prompts, responses, workflows):
-            # if not self.oracle:
-            #     # TODO
-            #     cat = p + r
-            #     p = RESPONSE.join(cat.split(RESPONSE)[:-1]).strip() +RESPONSE
-            #     r = cat.split(RESPONSE)[-1].strip()#.strip(RESPONSE_END).strip()
 
             context = p.replace(USER, "\nClient: ")
             context = context.replace(RESPONSE, "\nAgent: ")
@@ -100,17 +82,9 @@ class Reward:
 
             scores = output.logits.sigmoid().flatten()
             rewards += scores.tolist()
-        # for i, r in enumerate(responses):
-        #     perspective(f'generation-{i}', r)
 
-        # #perspective.stop()
-        # assert os.path.exists(perspective_file), 'missing perspective file'
-        # data = pd.DataFrame.from_dict({'prompt': prompts})
-        # results = collate(data, responses, load_jsonl(perspective_file), os.path.join(self.path, f'reward_{epoch}.json'))
-        # rewards = [toxicity_to_reward(y['toxicity']) for x in results for y in x]
 
         if self.bert_filter and "eval" not in epoch:
-            #for r, gt_response, response in zip(rewards, gt_responses, responses):
             P, R, F1 = self.bert_scorer.score(responses, gt_responses)
             bert_f1_flat = F1.tolist() # list of (n_examples * n_responses) elements
             new_rewards = [ float(x>=0.6)*r for x,r in zip(bert_f1_flat, rewards)]
@@ -124,15 +98,13 @@ class Reward:
 class BlockReward(Reward):
     def __init__(self, reward_model_path: str,  batch_size: int, save_dir: str, \
     bert_filter: bool = False, action_end_enforce = True, repetition_penalty = False, context_reward=True):
-        #self.path = save_path
-        #self.rate_limit = rate_limit
+
         self.batch_size = batch_size
         # init the model here
 
         eval_model_path = reward_model_path 
         self.device = torch.device("cuda")
         self.evaluator = AutoModelForSequenceClassification.from_pretrained(eval_model_path).to(self.device)
-        # evaluator = AutoModelForSequenceClassification.from_pretrained(eval_model_path, torch_dtype=torch.float16).to(device)
         self.eval_tok = AutoTokenizer.from_pretrained(eval_model_path)
         
         self.save_dir = save_dir
@@ -152,13 +124,6 @@ class BlockReward(Reward):
         repetition_penalty = []
         contexts = []
         for p,r,w in zip(prompts, responses, workflows):
-            # print("-"*30)
-            # print(p)
-            # print("+"*30)
-            # print(r)
-            # print("="*30)
-            # print(w)
-            # print()
             """
             This part is for ensuring that workflow generation for cascade model is trained too
             """

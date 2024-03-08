@@ -38,11 +38,7 @@ PRINT = False
 def clean_check(subflow, workflow):
 
     guideline =  retrieve_guideline_text_action(subflow, workflow) 
-    
-    # print("="*30)
-    # print(subflow, workflow)
-    # print(guideline)
-    # print() 
+
     return guideline != -1
 
 def convo_to_context_response_pairs_workflow_response(dataset_type: str, oracle: bool, reward_mode: str, \

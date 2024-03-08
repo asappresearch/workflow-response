@@ -169,29 +169,18 @@ def example_process(dataset_type: str, datum):
     for i, s in enumerate(split[1:]):
         first = RESPONSE.join(end_string.split(RESPONSE)[:i+1]).strip() +RESPONSE
         second = RESPONSE.join(end_string.split(RESPONSE)[i+1:]).strip() #+RESPONSE #string.split(RESPONSE)[i:].strip()
-        #print("="*30)
-        #print("first:", first)
-        #print("second:", second)
+
         
         second =  RESPONSE_END.join(second.split(RESPONSE_END)[:-1]) 
         for stoken in [ACTION, CONTEXT]:
             second = second.split(stoken)[0] 
-        # also get only up until the last response (no user or other stuff)
-        #print("actionless second:", second)
-        
-        #dic = {"context": first, "response": second, "subflow":flow, "true_wf":wfs[i]}
+
 
         if dataset_type == "b2" and not first.strip().endswith(ACTION_END+RESPONSE):
             continue
         if (WORKFLOW not in first or not first.strip().split(WORKFLOW)[-2].endswith(ACTION_END)) and dataset_type != "b2" :
             continue
 
-        # if not first.strip().endswith(ACTION_END+RESPONSE):
-        #     #print("skipping")
-        #     continue
-        # else:
-        #     #print('not skipping')
-        #     pass
 
         if True:
 
@@ -216,11 +205,7 @@ def example_process(dataset_type: str, datum):
                 else:
                     temp.append(rs)
             target = "\n".join(temp)
-            # 
-            #context = "\nNext Action: ".join(context.split("\nNext Action: ")[:-1]).strip()
 
-            # the next line not necessary (already contexts contain )
-            #target = "Agent: "+target
             
 
             """
@@ -235,15 +220,7 @@ def example_process(dataset_type: str, datum):
                 context = context.replace(stoken, "")
             
             context = context.strip()
-            # 
-            #context = "\nNext Action: ".join(context.split("\nNext Action: ")[:-1]).strip()
 
-            #first = context
-            # print("="*30)
-            # print(second)
-            # print("-"*30)
-            # print("Workflow:", wfs[i])
-            # print()
 
         wf = wfs[i]
         dic = { "original_action": wf, "random_action": None, "negative_action":None,\
@@ -251,9 +228,6 @@ def example_process(dataset_type: str, datum):
         if PRINT:
             print(dic)
         
-
-        # if WORKFLOW not in first or not first.strip().split(WORKFLOW)[-2].endswith(ACTION_END):
-        #     continue
         data.append(dic)
     
     return data
@@ -276,11 +250,7 @@ class CustomTrainer(Trainer):
 
         logits = logits.reshape(ids.shape[0], dim, -1)
         
-        
-        # ai's parallelized version: not really faster
-        # 2 epochs 4:42 vs 4:43 (accuracy was better this time, 80)
-        # 10 epochs  24:04 vs
-        # 10 epochs 90.5 accuracy
+
         pos_logits = logits[:, 0:dim//2, :].unsqueeze(2)
         neg_logits = logits[:, dim//2:, :].unsqueeze(1)
         
@@ -290,51 +260,14 @@ class CustomTrainer(Trainer):
         diff_sig = diffs.sigmoid()
         loss = -torch.mean(torch.log(diff_sig))
 
-        # pos_logits = logits[:, 0:dim//2, :]
-        # neg_logits = logits[:, dim//2:, :]
-        # diffs = []
 
-        # for i in range(dim//2):
-        #     pl = pos_logits[:, i, :]
-    
-        #     for j in range(dim//2):
-        #         nl = neg_logits[:, j, :]
-    
-        #         diff = pl - nl
-    
-        #         diffs.append(diff)
-    
-        # diffs = torch.stack(diffs)
-
-        # diff_sig = diffs.sigmoid()
-        # loss = -torch.mean(torch.log(diff_sig))
 
         return loss, pos_logits.squeeze(), neg_logits.squeeze()
 
     def compute_loss(self, model, inputs):
         # inputs is a BSZ x 2 x SEQLEN x HIDDEN
         loss, pos_logits, neg_logits = self.forward(model, inputs)        
-        # ids = inputs["input_ids"]
-        # att = inputs["attention_mask"]
 
-        # flattened_ids = ids.reshape(ids.shape[0]*2, ids.shape[-1])
-        # flattened_att = att.reshape(att.shape[0]*2, att.shape[-1])
-        
-
-        # outputs = model(input_ids=flattened_ids, attention_mask=flattened_att)
-        # logits = outputs[0]
-        
-
-        # logits = logits.reshape(ids.shape[0], 2, -1)
-        
-
-        # pos_logits = logits[:, 0, :]
-        # neg_logits = logits[:, 1, :]
-
-
-        # diff = pos_logits - neg_logits
-        # diff_sig = diff.sigmoid()
-        # loss = -torch.mean(torch.log(diff_sig))
         return loss
 
     def evaluate(
@@ -368,54 +301,6 @@ class CustomTrainer(Trainer):
             neg_scores += neg_logits.sigmoid().tolist()
 
         return { "accuracy": np.average(results), "pos_scores": np.average(pos_scores), "neg_scores":np.average(neg_scores)}
-
-
-        # gen_kwargs = gen_kwargs.copy()
-        # if gen_kwargs.get("max_length") is None and gen_kwargs.get("max_new_tokens") is None:
-        #     gen_kwargs["max_length"] = self.args.generation_max_length
-        # gen_kwargs["num_beams"] = (
-        #     gen_kwargs["num_beams"] if gen_kwargs.get("num_beams") is not None else self.args.generation_num_beams
-        # )
-        # self._gen_kwargs = gen_kwargs
-
-        # return super().evaluate(eval_dataset, ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix)
-
-
-    """
-    Probably need to subclass both evaluate and predict_step https://huggingface.co/transformers/v3.5.1/main_classes/trainer.html
-    """
-    # def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=False):
-    #     # inputs is a BSZ x 2 x SEQLEN x HIDDEN
-        
-    #     ids = inputs["input_ids"]
-    #     att = inputs["attention_mask"]
-    #     print(ids.shape, att.shape)
-    #     pos_ids = ids[:,0,:].to(model.device)
-    #     pos_att = att[:,0,:].to(model.device)
-
-
-
-    #     #print(pos_ids.shape, pos_att.shape, neg_ids.shape, neg_att.shape)
-    #     #print(pos_ids, pos_att)
-    #     #print(neg_ids, neg_att)
-    #     pos_outputs = model(input_ids=pos_ids, attention_mask=pos_att)
-    #     pos_logits = pos_outputs[0]
-
-    #     neg_ids = ids[:,1,:].to(model.device)
-    #     neg_att = att[:,1,:].to(model.device)
-
-    #     neg_outputs = model(input_ids=neg_ids, attention_mask=neg_att)
-    #     neg_logits = neg_outputs[0]
-    #     #print(pos_logits.shape, neg_logits.shape)
-    #     #print(pos_logits, neg_logits)
-
-    #     diff = pos_logits - neg_logits
-    #     diff_sig = diff.sigmoid()
-    #     loss = -torch.mean(torch.log(diff_sig))
-    #     if prediction_loss_only:
-    #         return loss
-    #     else:
-    #         return loss, pos_logits, neg_logits
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.20.0.dev0")
@@ -796,10 +681,7 @@ def main():
             for d in new_data:
                 pos_act = d["original_action"]
 
-                # if pos_act == "None":
-                #    continue
-                #    #if random.randint(0,10) >= 2:
-                #    #    continue
+
                 context = d["context"]
                 neg_act = d["negative_action"]
                 random_act = d["random_action"]
@@ -969,22 +851,7 @@ def main():
         ACTION_END,
         RESPONSE,
         RESPONSE_END
-        # REP_START, # not using now
-        # SOS,
-        # EOS,
-        # UNK,
-        # PAD,
-        # CONVO_START,
-        # CONVO_END,
-        # CUS_START,
-        # CUS_END,
-        # REP_START,
-        # REP_END,
-        # REP_ACTION_START,
-        # REP_ACTION_END,
-        # REWARD_ONE,
-        # REWARD_ZERO,
-        # RESPONSE_PLACEHOLDER,
+
     ]
     if data_args.add_sanitized_tokens:
         additional_special_tokens += sanitized_tokens
@@ -993,13 +860,7 @@ def main():
 
     tokenizer.add_special_tokens(
         {
-            # "bos_token": SOS,
-            # "eos_token": EOS,
-            # "unk_token": UNK,
-            # "cls_token": SOS,
-            # "sep_token": EOS,
-            # "pad_token": PAD,
-            #"additional_special_tokens": additional_special_tokens,
+
         }
     )
     model.resize_token_embeddings(len(tokenizer))
@@ -1012,8 +873,7 @@ def main():
     else:
         column_names = raw_datasets["validation"].column_names
     text_column_name = "text" if "text" in column_names else column_names[0]
-    # print(text_column_name)
-    # exit()
+
 
     # since this will be pickled to avoid _LazyModule error in Hasher force logger loading before tokenize_function
     tok_logger = transformers.utils.logging.get_logger(
@@ -1021,30 +881,18 @@ def main():
     )
     #print(raw_datasets)
     def tokenize_function(examples):
-        # print(examples[text_column_name])
-        # exit()
-        #print(examples)
-        #print(len(examples))
+
         with CaptureLogger(tok_logger) as cl:
             dim =len(examples[text_column_name][0])
             assert dim % 2 == 0
-            # output0 = tokenizer([x[0] for x in examples[text_column_name]])
-            # output1 = tokenizer([x[1] for x in examples[text_column_name]])
 
-            # pos = [ tokenizer(x[0:dim%2]) for x in examples[text_column_name]]
-            # neg = [ tokenizer(x[dim%2:]) for x in examples[text_column_name]]
 
             outputs = [ [] for x in range(dim)]
 
             for i, o in enumerate(outputs):
                 outputs[i] = tokenizer([x[i] for x in examples[text_column_name]])
 
-            #print(output0)
-            #print(output1)
-            # output["labels"] = examples["label"]
-            # output["action"] = examples["action"]
-            # output["type"] = examples["type"]
-            #output = [output0, output1]
+
             output = {}
             for k,v in outputs[0].items():
                 output[k] = []
@@ -1053,12 +901,7 @@ def main():
                 for j in range(len(outputs[0][k])):
                     output[k] += [[outputs[i][k][j] for i in range(dim)]]
                     
-                    # for i, o in enumerate(outputs):
-                    #     #assert (len(outputs[0][k]) == len(outputs[i][k]))
-                    #     output[k] += [[outputs[i][k][j], outputs[i][k][j]]]
-                
-            #print(output)
-        # clm input could be much much longer than block_size
+
         if "Token indices sequence length is longer than the" in cl.out:
             tok_logger.warning(
                 "^^^^^^^^^^^^^^^^ Please ignore the warning above - this long input will be chunked into smaller bits"
@@ -1130,14 +973,7 @@ def main():
             return result
     else:
         def pad_texts(examples):
-            #print(examples.keys())
-            #print(examples.values())
-            # print(examples["type"])
-            # print(examples["action"])
-            # exit()
-            #print(examples["input_ids"][0])
-            #print(len(examples["input_ids"]))
-            #exit()
+
 
             result = {k: [] for k in examples.keys()}
             for pair_input_ids, pair_attention_mask in zip(examples['input_ids'],examples['attention_mask']):
@@ -1155,20 +991,13 @@ def main():
                     pair_result['attention_mask'].append(attention_mask)
                     #result["token_type_ids"].append(token_type_ids)
                 for k,v in pair_result.items():
-                    #print(k)
-                    #print(v)
-                    #print(len(v))
-                    #print(v[0].shape, v[1].shape)
+
                     result[k].append(v)
-            # result["labels"] = examples["labels"]
-            # result["type"] = examples["type"]
-            # result["action"] = examples['action']
-            #result["label"] = examples["labels"]
-            #print(result)
+
             return result
 
     # Note that with `batched=True`, this map processes 1,000 texts together, so group_texts throws away a remainder
-    # for each of those groups of 1,000 texts. You can adjust that batch_size here but a higher value might be slower
+    # for each of those groups of 1,000 texts. You can aannotator_cust that batch_size here but a higher value might be slower
     # to preprocess.
     #
     # To speed up this part, we use multiprocessing. See the documentation of the map method for more information:
@@ -1222,12 +1051,7 @@ def main():
         def compute_metrics(eval_preds):
             print(eval_preds)
             preds, labels = eval_preds
-            #print(preds.shape)
-            #print(labels.shape)
-            # preds have the same shape as the labels, after the argmax(-1) has been calculated
-            # by preprocess_logits_for_metrics but we need to shift the labels
-            #labels = labels[:, 1:].reshape(-1)
-            #preds = preds[:, :-1].reshape(-1)
+
             result =  metric.compute(predictions=preds, references=labels)
             
             results = []
@@ -1315,12 +1139,7 @@ def main():
             if data_args.max_eval_samples is not None
             else len(eval_dataset)
         )
-        # metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
-        # try:
-        #     perplexity = math.exp(metrics["eval_loss"])
-        # except OverflowError:
-        #     perplexity = float("inf")
-        # metrics["perplexity"] = perplexity
+
 
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
