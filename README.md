@@ -1,4 +1,4 @@
-# Workflow-guided Response Generation
+# Repository for Workflow-guided Response Generation
 
 
 ## Installation
